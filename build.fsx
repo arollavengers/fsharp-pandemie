@@ -1,15 +1,16 @@
 ﻿#r "packages/FAKE.3.34.7/tools/FakeLib.dll"
 open Fake 
 
-// Directories
-let buildDir  = "./build/"
+//RestorePackages()
 
-let appDir   = "./core"
-let testDir   = "./core.test"
+// Output Directories
+let buildDir  = "./build/"
+let testDir   = "./test/"
 let deployDir = "./deploy/"
 
-
+// -------------------------------------------------------------------
 // Targets
+// -------------------------------------------------------------------
 
 Target "Clean" (fun _ ->
     CleanDir buildDir
@@ -21,6 +22,10 @@ Target "BuildApp" (fun _ ->
      |> Log "AppBuild-Output: "
 )
 
+Target "CleanTest" (fun _ ->
+    CleanDir testDir
+)
+
 Target "BuildTest" (fun _ ->
     !! "core.test/**/*.fsproj"
       |> MSBuildDebug testDir "Build"
@@ -28,7 +33,10 @@ Target "BuildTest" (fun _ ->
 )
 
 Target "Test" (fun _ ->  
-    !! (testDir + "/NUnit.Test.*.dll")
+    trace ""
+    trace " --- Testing app --- "
+    trace ""
+    !! (testDir + "/core.test.dll")
         |> NUnit (fun p -> 
             {p with
                 DisableShadowCopy = true; 
@@ -37,11 +45,14 @@ Target "Test" (fun _ ->
 
 Target "Deploy" (fun () -> trace " --- Deploying app --- ")
 
+
 "Clean"
   ==> "BuildApp"
+
+"CleanTest"
   ==> "BuildTest"
   ==> "Test"
-  ==> "Deploy"
 
+Dependencies "Deploy" ["BuildApp"; "Test"]
 
 RunTargetOrDefault "Deploy"
