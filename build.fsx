@@ -1,7 +1,7 @@
 ﻿#r "packages/FAKE.3.34.7/tools/FakeLib.dll"
 open Fake 
 
-//RestorePackages()
+RestorePackages()
 
 // Output Directories
 let buildDir  = "./build/"
