@@ -5,6 +5,7 @@
 #load "Component1.fs"
 open core
 
+let Fail message = failwith message
 let IsTrue(success) = if not success then failwith "Expected true"
 let AreEqual(expected, actual) =
     if not (expected = actual) then 
@@ -21,16 +22,22 @@ type Outbreak = unit
 // Atlanta|Miami|Washington|MexicoCity|Chicago
 
 let Atlanta = {NbCubes=0}
-type InfectResult = City of City| Outbreak
+type InfectResult = Cups of City| Oups of Outbreak
 
 let InfectCity city =
     match city.NbCubes with
-    | 3 -> Outbreak 
-    | _ -> City {NbCubes = city.NbCubes + 1}
+    | 3 -> Oups ()
+    | _ -> Cups {NbCubes = city.NbCubes + 1}
     
 
-let NewAtlanta = InfectCity Atlanta
-AreEqual (1, NewAtlanta.NbCubes)
+let NewAtlanta1 = InfectCity Atlanta
+match NewAtlanta1 with
+            | Cups city -> AreEqual (1, city.NbCubes)
+            | Oups outb -> Fail "No Outbreak expected"
+
+let x = match NewAtlanta1 with
+                    | Cups city -> InfectCity city
+                    | Oups outb -> NewAtlanta1
 
 
 let NewAtlanta2 = 
