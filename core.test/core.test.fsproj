@@ -51,5 +51,12 @@
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.1\Framework\v4.0\Microsoft.FSharp.Targets" />
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Script.fsx" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\core\core.fsproj">
+      <Project>{420655B7-955C-42F7-AB36-57AB303A11A8}</Project>
+      <Name>core</Name>
+    </ProjectReference>
   </ItemGroup>
 </Project>
