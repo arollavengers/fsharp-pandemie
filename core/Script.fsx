@@ -16,15 +16,17 @@ let Throws<'T when 'T :> exn> (f) =
 // -------------------------------------------------------------------------------
 
 type City = {NbCubes : int} 
+type Outbreak = unit
+
 // Atlanta|Miami|Washington|MexicoCity|Chicago
 
 let Atlanta = {NbCubes=0}
-type InfectResult = City| Outbreak
+type InfectResult = City of City| Outbreak
 
 let InfectCity city =
     match city.NbCubes with
     | 3 -> Outbreak 
-    | _ -> {NbCubes = city.NbCubes + 1}
+    | _ -> City {NbCubes = city.NbCubes + 1}
     
 
 let NewAtlanta = InfectCity Atlanta
