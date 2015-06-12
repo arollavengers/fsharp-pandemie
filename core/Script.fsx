@@ -16,27 +16,18 @@ let Throws<'T when 'T :> exn> (f) =
 // -------------------------------------------------------------------------------
 
 type City = {NbCubes : int} 
-type Outbreak = unit
-
 // Atlanta|Miami|Washington|MexicoCity|Chicago
 
 let Atlanta = {NbCubes=0}
-type InfectResult = Cups of City | Oups of Outbreak
+type InfectResult = City| Outbreak
 
 let InfectCity city =
     match city.NbCubes with
-    | 3 -> Oups () 
-    | _ -> Cups {NbCubes = city.NbCubes + 1}
+    | 3 -> Outbreak 
+    | _ -> {NbCubes = city.NbCubes + 1}
     
 
-let NewAtlanta1 = InfectCity Atlanta
-
-let x = match NewAtlanta1 with
-                    | Cups city -> InfectCity city
-                    | Oups outb -> NewAtlanta1
-
-let NewAtlanta2 = InfectCity NewAtlanta1
-
+let NewAtlanta = InfectCity Atlanta
 AreEqual (1, NewAtlanta.NbCubes)
 
 
