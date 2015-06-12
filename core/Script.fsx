@@ -35,21 +35,25 @@ match NewAtlanta1 with
             | Cups city -> AreEqual (1, city.NbCubes)
             | Oups outb -> Fail "No Outbreak expected"
 
-let x = match NewAtlanta1 with
-                    | Cups city -> InfectCity city
-                    | Oups outb -> NewAtlanta1
+
+let CubeMatcher infectResult nbCubesExpected = 
+        match infectResult with
+                    | Cups city -> AreEqual (nbCubesExpected, city.NbCubes); city
+                    | Oups outb -> Fail "No Outbreak expected"
+
+let OutbreakMatcher infectResult = 
+        match infectResult with
+                    | Cups city -> Fail "Outbreak expected"
+                    | Oups outb -> false// nothing to return
 
 
 let NewAtlanta2 = 
     Atlanta 
     |> InfectCity            
-    |> fun x -> AreEqual (1, x.NbCubes); x
+    |> fun x -> CubeMatcher x 1
     |> InfectCity
-    |> fun x -> AreEqual (2, x.NbCubes); x
+    |> fun x -> CubeMatcher x 2
     |> InfectCity
-    |> fun x -> AreEqual (3, x.NbCubes); x
+    |> fun x -> CubeMatcher x 3
     |> InfectCity
-    |> fun x -> AreEqual (3, x.NbCubes); x
-
-   
-AreEqual (1, NewAtlanta.NbCubes)
+    |> fun x -> OutbreakMatcher x
