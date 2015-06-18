@@ -16,21 +16,25 @@ let Throws<'T when 'T :> exn> (f) =
 
 // -------------------------------------------------------------------------------
 
-type City = {NbCubes : int} 
+type InfectionLevel = {NbCubes : int} 
 type Outbreak = unit
+type City = Atlanta|Miami|Washington|MexicoCity|Chicago|NewYork
+type Link = City * City
+type Links = Link list
 
-// Atlanta|Miami|Washington|MexicoCity|Chicago
 
-let Atlanta = {NbCubes=0}
-type InfectResult = Cups of City| Oups of Outbreak
+let World:Links= [(Atlanta , Miami);(Atlanta , Washington);(Washington, NewYork);(MexicoCity,Miami);(Chicago,Atlanta)]
+
+type InfectResult = Cups of InfectionLevel | Oups of Outbreak
 
 let InfectCity city =
     match city.NbCubes with
     | 3 -> Oups ()
     | _ -> Cups {NbCubes = city.NbCubes + 1}
-    
 
-let NewAtlanta1 = InfectCity Atlanta
+
+let AtlantaInfectionLevel = {NbCubes=0}
+let NewAtlanta1 = InfectCity AtlantaInfectionLevel
 match NewAtlanta1 with
             | Cups city -> AreEqual (1, city.NbCubes)
             | Oups outb -> Fail "No Outbreak expected"
@@ -48,7 +52,7 @@ let OutbreakMatcher infectResult =
 
 
 let NewAtlanta2 = 
-    Atlanta 
+    AtlantaInfectionLevel 
     |> InfectCity            
     |> fun x -> CubeMatcher x 1
     |> InfectCity
@@ -57,3 +61,31 @@ let NewAtlanta2 =
     |> fun x -> CubeMatcher x 3
     |> InfectCity
     |> fun x -> OutbreakMatcher x
+
+let rec __filter list predicate = 
+    match list with
+    | [] -> []
+    | head :: tail -> match predicate head with 
+                      | true -> head :: __filter tail predicate
+                      | false -> __filter tail predicate
+                        
+let rec __map list mapper = 
+    match list with
+    | [] -> []
+    | head :: tail -> mapper head :: __map tail mapper
+                    
+let NeighborHoodOf world city = 
+    world
+    |> fun x -> __filter x (fun (a,c) -> c=city || a=city)
+    |> fun x -> __map x (fun x -> match x with
+                                  | (a,b) when b=city -> a
+                                  | (a,b) when a=city -> b
+                                  | (a,b)  -> a 
+                                  
+                        )
+                        
+let NeighborHoodOfAtlanta = 
+    NeighborHoodOf World Atlanta 
+    |> fun x -> AreEqual(3,List.length x);x
+    |> fun x -> AreEqual([Miami;Washington;Chicago],x);x
+    
