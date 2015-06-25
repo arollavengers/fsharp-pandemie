@@ -2,8 +2,7 @@
 // for more guidance on F# programming.
 
 #light
-#load "Component1.fs"
-open core
+open Microsoft.FSharp.Reflection
 
 let Fail message = failwith message
 let IsTrue(success) = if not success then failwith "Expected true"
@@ -14,17 +13,43 @@ let Throws<'T when 'T :> exn> (f) =
     let fail () = failwith "Expected %s" typeof<'T>.Name
     try f (); fail () with :? 'T as e -> e | _ -> fail()
 
+let rec __filter list predicate = 
+    match list with
+    | [] -> []
+    | head :: tail -> match predicate head with 
+                      | true -> head :: __filter tail predicate
+                      | false -> __filter tail predicate
+                        
+let rec __map list mapper = 
+    match list with
+    | [] -> []
+    | head :: tail -> mapper head :: __map tail mapper
+
 // -------------------------------------------------------------------------------
 
 type InfectionLevel = {NbCubes : int} 
 type Outbreak = unit
-type City = Atlanta|Miami|Washington|MexicoCity|Chicago|NewYork
+type City = Nowhere|Atlanta|Miami|Washington|MexicoCity|Chicago|NewYork
 type Link = City * City
 type Links = Link list
 
 
 let World:Links= [(Atlanta , Miami);(Atlanta , Washington);(Washington, NewYork);(MexicoCity,Miami);(Chicago,Atlanta)]
 
+let toCityInfection = fun (y:City) -> (y,{NbCubes=0})
+
+let CityList = FSharpType.GetUnionCases typeof<City> 
+               |> Array.toList
+               |> fun x -> __map x (fun y -> FSharpValue.MakeUnion (y,[||]):?>City) 
+
+
+type InfectedWorld = Map<City, InfectionLevel>
+let initialInfectedWorld: InfectedWorld = 
+    let initialInfectionLevel:InfectionLevel = {NbCubes=0}
+    CityList
+    |> fun xs -> __map xs (fun city -> (city, initialInfectionLevel))
+    |> Map.ofList
+    
 type InfectResult = Cups of InfectionLevel | Oups of Outbreak
 
 let InfectCity city =
@@ -34,6 +59,7 @@ let InfectCity city =
 
 
 let AtlantaInfectionLevel = {NbCubes=0}
+
 let NewAtlanta1 = InfectCity AtlantaInfectionLevel
 match NewAtlanta1 with
             | Cups city -> AreEqual (1, city.NbCubes)
@@ -62,17 +88,6 @@ let NewAtlanta2 =
     |> InfectCity
     |> fun x -> OutbreakMatcher x
 
-let rec __filter list predicate = 
-    match list with
-    | [] -> []
-    | head :: tail -> match predicate head with 
-                      | true -> head :: __filter tail predicate
-                      | false -> __filter tail predicate
-                        
-let rec __map list mapper = 
-    match list with
-    | [] -> []
-    | head :: tail -> mapper head :: __map tail mapper
                     
 let NeighborHoodOf world city = 
     world
@@ -80,12 +95,25 @@ let NeighborHoodOf world city =
     |> fun x -> __map x (fun x -> match x with
                                   | (a,b) when b=city -> a
                                   | (a,b) when a=city -> b
-                                  | (a,b)  -> a 
+                                  | (a,b)  -> Nowhere
                                   
                         )
                         
 let NeighborHoodOfAtlanta = 
     NeighborHoodOf World Atlanta 
-    |> fun x -> AreEqual(3,List.length x);x
-    |> fun x -> AreEqual([Miami;Washington;Chicago],x);x
+    |> fun xs -> AreEqual(3,List.length xs);xs
+    |> fun xs -> AreEqual([Miami;Washington;Chicago],xs);xs
     
+let PropagateOutbreak (world:Links, city:City, infectedWorld:InfectedWorld ) = 
+    NeighborHoodOf world city
+    |> fun xs -> __map xs (fun y -> (y,InfectCity (infectedWorld.[y])))
+    |> fun xs -> List.fold (fun updatedWorld t -> 
+                                let (city,infectResult) = t 
+                                match infectResult with
+                                    | Cups levl -> updatedWorld //.Add(city,levl)
+                                    | Oups outb -> updatedWorld
+                          ), infectedWorld, xs
+
+
+PropagateOutbreak (World ,Atlanta ,initialInfectedWorld)
+PropagateOutbreak (World ,Atlanta ,initialInfectedWorld)
