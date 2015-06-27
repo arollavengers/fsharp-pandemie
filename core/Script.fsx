@@ -102,16 +102,25 @@ let NeighborHoodOfAtlanta =
     |> fun xs -> AreEqual(3,List.length xs);xs
     |> fun xs -> AreEqual([Miami;Washington;Chicago],xs);xs
     
-let PropagateOutbreak (world:Links, city:City, infectedWorld:InfectedWorld ) = 
+let PropagateOutbreak (world:Links) (city:City) (infectedWorld:InfectedWorld ) = 
     NeighborHoodOf world city
-    |> fun xs -> __map xs (fun y -> (y,InfectCity (infectedWorld.[y])))
-    |> fun xs -> List.fold (fun updatedWorld t -> 
+    |> List.map (fun y -> (y,InfectCity (infectedWorld.[y])))
+    |> List.fold (fun (updatedWorld:InfectedWorld) t -> 
                                 let (city,infectResult) = t 
                                 match infectResult with
-                                    | Cups levl -> updatedWorld //.Add(city,levl)
+                                    | Cups levl -> updatedWorld.Add(city,levl)
                                     | Oups outb -> updatedWorld
-                          ), infectedWorld, xs
+                          ) infectedWorld
 
-
-PropagateOutbreak (World ,Atlanta ,initialInfectedWorld)
-PropagateOutbreak (World ,Atlanta ,initialInfectedWorld)
+let noInfection:InfectionLevel = {NbCubes=0}
+let oneInfection:InfectionLevel = {NbCubes=1}
+    
+let propagateFromAtlanta = PropagateOutbreak World Atlanta initialInfectedWorld
+let expectedInfections = [ (Nowhere, noInfection); 
+                           (Atlanta, noInfection);
+                           (Miami, oneInfection); 
+                           (Washington, oneInfection);
+                           (MexicoCity, noInfection); 
+                           (Chicago, oneInfection);
+                           (NewYork, noInfection)] |> Map.ofList
+AreEqual (expectedInfections, propagateFromAtlanta)
