@@ -89,15 +89,13 @@ let NewAtlanta2 =
     |> fun x -> OutbreakMatcher x
 
                     
-let NeighborHoodOf world city = 
+let NeighborHoodOf (world:Links) (city:City) = 
     world
-    |> fun x -> __filter x (fun (a,c) -> c=city || a=city)
-    |> fun x -> __map x (fun x -> match x with
+    |> List.filter (fun (a,c) -> c=city || a=city)
+    |> List.map (fun x -> match x with
                                   | (a,b) when b=city -> a
                                   | (a,b) when a=city -> b
-                                  | (a,b)  -> Nowhere
-                                  
-                        )
+                                  | (a,b)  -> Nowhere)
                         
 let NeighborHoodOfAtlanta = 
     NeighborHoodOf World Atlanta 
