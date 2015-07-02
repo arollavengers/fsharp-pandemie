@@ -34,20 +34,26 @@ type Link = City * City
 type Links = Link list
 
 
-let World:Links= [(Atlanta , Miami);(Atlanta , Washington);(Washington, NewYork);(MexicoCity,Miami);(Chicago,Atlanta)]
+let World:Links= [(Atlanta , Miami);
+                  (Atlanta , Washington);
+                  (Washington, NewYork);
+                  (MexicoCity,Miami);
+                  (Chicago,Atlanta);
+                  (Miami, Chicago)]
 
 let toCityInfection = fun (y:City) -> (y,{NbCubes=0})
 
 let CityList = FSharpType.GetUnionCases typeof<City> 
                |> Array.toList
-               |> fun x -> __map x (fun y -> FSharpValue.MakeUnion (y,[||]):?>City) 
+               |> List.map (fun y -> FSharpValue.MakeUnion (y,[||]) :?> City) 
 
 
 type InfectedWorld = Map<City, InfectionLevel>
+
 let initialInfectedWorld: InfectedWorld = 
-    let initialInfectionLevel:InfectionLevel = {NbCubes=0}
+    let noInfectionLevel:InfectionLevel = {NbCubes=0}
     CityList
-    |> fun xs -> __map xs (fun city -> (city, initialInfectionLevel))
+    |> List.map (fun city -> (city, noInfectionLevel))
     |> Map.ofList
     
 type InfectResult = Cups of InfectionLevel | Oups of Outbreak
@@ -102,20 +108,36 @@ let NeighborHoodOfAtlanta =
     |> fun xs -> AreEqual(3,List.length xs);xs
     |> fun xs -> AreEqual([Miami;Washington;Chicago],xs);xs
     
-let PropagateOutbreak (world:Links) (city:City) (infectedWorld:InfectedWorld ) = 
+let rec PropagateOutbreak (world:Links) (city:City) (infectedWorld:InfectedWorld ) = 
+    printfn "Propagate outbreak from %A" city
+    printfn "   Infected World %A" infectedWorld
+
+    let SortOutbreakLast (c, lvl) = 
+                        match lvl with
+                        | Cups _ -> 0
+                        | Oups _ -> 1
+
     NeighborHoodOf world city
     |> List.map (fun y -> (y,InfectCity (infectedWorld.[y])))
+    |> List.sortBy SortOutbreakLast 
+    |> fun xs -> printfn "%A" xs; xs
     |> List.fold (fun (updatedWorld:InfectedWorld) t -> 
-                                let (city,infectResult) = t 
+                                let (infectedCity,infectResult) = t 
                                 match infectResult with
-                                    | Cups levl -> updatedWorld.Add(city,levl)
-                                    | Oups outb -> updatedWorld
+                                    | Cups levl -> updatedWorld.Add(infectedCity,levl)
+                                    | Oups outb -> PropagateOutbreak world infectedCity updatedWorld
                           ) infectedWorld
 
 let noInfection:InfectionLevel = {NbCubes=0}
 let oneInfection:InfectionLevel = {NbCubes=1}
     
+let miamiInfectedWorld = initialInfectedWorld.Add(Miami, {NbCubes=3})
+let propagateFromAtlanta_MiamiOutbreak = PropagateOutbreak World Atlanta miamiInfectedWorld
+
+
 let propagateFromAtlanta = PropagateOutbreak World Atlanta initialInfectedWorld
+let propagateFromMiami = PropagateOutbreak World Miami initialInfectedWorld
+
 let expectedInfections = [ (Nowhere, noInfection); 
                            (Atlanta, noInfection);
                            (Miami, oneInfection); 
