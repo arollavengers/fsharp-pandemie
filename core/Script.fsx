@@ -48,7 +48,7 @@ let CityList = FSharpType.GetUnionCases typeof<City>
                |> List.map (fun y -> FSharpValue.MakeUnion (y,[||]) :?> City) 
 
 for city in [|Nowhere;Atlanta;Miami;Washington;MexicoCity;Chicago;NewYork|] do
-    AreEqual (city, List.find (fun c -> c = city) CityList)
+    IsTrue (List.exists (fun c -> c = city) CityList)
 
 
 type InfectedWorld = Map<City, InfectionLevel>
