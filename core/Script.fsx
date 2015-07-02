@@ -134,6 +134,14 @@ let oneInfection:InfectionLevel = {NbCubes=1}
 let miamiInfectedWorld = initialInfectedWorld.Add(Miami, {NbCubes=3})
 let propagateFromAtlanta_MiamiOutbreak = PropagateOutbreak World Atlanta miamiInfectedWorld
 
+//
+// Infinite loop!!!
+//
+let miamiAndAtlantaInfectedWorld = initialInfectedWorld
+                                            .Add(Miami, {NbCubes=3})
+                                            .Add(Atlanta, {NbCubes=3})
+let propagateFromAtlanta_MiamiOutbreakChain = PropagateOutbreak World Atlanta miamiAndAtlantaInfectedWorld
+
 
 let propagateFromAtlanta = PropagateOutbreak World Atlanta initialInfectedWorld
 let propagateFromMiami = PropagateOutbreak World Miami initialInfectedWorld
