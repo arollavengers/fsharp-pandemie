@@ -32,7 +32,6 @@ type ResourceColor =
     | LightBrown
     | Green
 
-
 type SuccessPoint = unit
 
 type UrbanizationToken = 
@@ -113,7 +112,7 @@ type PlayerState =
     { nbResource : int
       nbResourceAvailable : int
       nbSuccessPoint : int
-      cards: BuildingCard list
+      cards : BuildingCard list
       characters : CharacterId list
       tiles : Tile list }
 
@@ -128,7 +127,7 @@ type GameError =
     | PlayerIdNotBound of PlayerId
     | NoResourceAvailable
     | NoTileAvailableInGame
-    | UnknownIncreasableItem
+    | UnsupportedIncreasableItem
 
 let rec mapPlayers (players : Player list) (playerIds : PlayerId list) (mapped : Map<Player, PlayerId>) = 
     match playerIds with
@@ -214,7 +213,7 @@ let increase (item : IncreasableItem) (player : PlayerId) (gameTT : TwoTrack<Gam
                     let newState = { playerState with tiles = tile :: playerState.tiles }
                     Success { game with playerStates = ps.Add(player, newState)
                                         availableTiles = remainings }
-            | _ -> Error UnknownIncreasableItem
+            | _ -> Error UnsupportedIncreasableItem
 
 let whenAction (requiredKind : ActionKind) (updater : UpdateGame) = 
     fun (kind : ActionKind) -> 
@@ -246,25 +245,195 @@ let character1 : CharacterCard =
 let randomNumberGenerator = new System.Random()
 
 // type is specified to prevent crash on mono...
-let shuffle (cards : Card list) = 
+let shuffle (cards : BuildingTile list) = 
     let upperBound = (List.length cards) * 100
     let weightedCards = List.map (fun card -> card, randomNumberGenerator.Next(0, upperBound)) cards
     let sortedWeightedCards = 
         List.sortWith (fun (_, leftWeight) (_, rightWeight) -> leftWeight - rightWeight) weightedCards
     List.map (fun (card, _) -> card) sortedWeightedCards
 
-let shuffleCards (cards : Card list) = shuffle cards
+let shuffleCards (cards : BuildingTile list) = shuffle cards
 
-let initialCity = 
+let initialBuildingTiles : BuildingTile list = 
     [ for num in 1..3 do
           for color in [ Blue; Red; Yellow ] -> 
-              BuildingCard { color = color
-                             number = num } ]
+              { color = color
+                number = num } ]
 
-printfn "Initial city layout: %A" initialCity
+printfn "Initial city layout: %A" initialBuildingTiles
 printfn "About to shuffle tiles"
 
-let shuffled = shuffle initialCity
+let shuffled = shuffle initialBuildingTiles
 
 printfn "Tiles shuffled"
 printfn "%A" shuffled
+
+type Coord = int * int
+
+type TilesOrGreenSpace = 
+    | BuildingTiles of BuildingTile list
+    | GreenSpaceTile of GreenSpaceTile
+
+type BuildingBlock = 
+    { inConstruction : bool
+      tiles : TilesOrGreenSpace
+      player : Option<Player>
+      nbResource : int }
+
+type CityBlock = 
+    | UrbanizationBlock of UrbanizationToken
+    | BuildingBlock of BuildingBlock
+
+type CityLayout = Map<Coord, CityBlock>
+
+type City = 
+    { layout : CityLayout }
+
+let layoutCity (buildingTiles : BuildingTile list) = 
+    let urbz = 
+        [ ((-1, +2), UrbanizationBlock A)
+          ((0, +2), UrbanizationBlock B)
+          ((+1, +2), UrbanizationBlock C)
+          ((+2, +1), UrbanizationBlock D)
+          ((+2, 0), UrbanizationBlock E)
+          ((+2, -1), UrbanizationBlock F)
+          ((+1, -2), UrbanizationBlock G)
+          ((0, -2), UrbanizationBlock H)
+          ((-1, -2), UrbanizationBlock I)
+          ((-2, -1), UrbanizationBlock J)
+          ((-2, 0), UrbanizationBlock K)
+          ((-2, +1), UrbanizationBlock L) ]
+    
+    let coords : Coord list = 
+        [ for y in [ 1; 0; -1 ] do
+              for x in [ -1; 0; 1 ] -> (x, y) ]
+    
+    let initBlock (tile : BuildingTile) : CityBlock = 
+        BuildingBlock { inConstruction = false
+                        tiles = BuildingTiles [ tile ]
+                        player = Option.None
+                        nbResource = 0 }
+    
+    let layoutBT = 
+        buildingTiles
+        |> List.map initBlock
+        |> List.zip coords
+        |> List.append urbz
+        |> Map.ofList
+    
+    { layout = layoutBT }
+
+let city = (layoutCity shuffled)
+
+let keys = 
+    city.layout
+    |> Map.toList
+    |> List.map (fun (k, v) -> k)
+
+AreEqual 21 (List.length keys)
+
+//
+//         +-------+-------+-------+
+//         |       |       |       |           
+//         |   A   |   B   |   C   |           
+//         |       |       |       |        
+// +-------+-------+-------+-------+-------+    
+// |       |       |       |       |       |   
+// |   L   |       |       |       |   D   |   
+// |       |       |       |       |       |
+// +-------+-------+-------+-------+-------+    
+// |       |       |       |       |       |   
+// |   K   |       |   +   |       |   E   |   
+// |       |       |       |       |       |
+// +-------+-------+-------+-------+-------+    
+// |       |       |       |       |       |   
+// |   J   |       |       |       |   F   |   
+// |       |       |       |       |       |
+// +-------+-------+-------+-------+-------+    
+//         |       |       |       |           
+//         |   I   |   H   |   G   |           
+//         |       |       |       |        
+//         +-------+-------+-------+    
+//
+let rangeOf (cityLayout : CityLayout) : Coord * Coord = 
+    cityLayout
+    |> Map.toList
+    |> List.map (fun (k, v) -> k)
+    |> List.fold (fun ((xmin, ymin), (xmax, ymax)) (x, y) -> 
+           let nxmin = 
+               if x < xmin then x
+               else xmin
+           
+           let nxmax = 
+               if x > xmax then x
+               else xmax
+           
+           let nymin = 
+               if y < ymin then y
+               else ymin
+           
+           let nymax = 
+               if y > ymax then y
+               else ymax
+           
+           ((nxmin, nymin), (nxmax, nymax))) ((+1, +1), (-1, -1))
+
+AreEqual ((-2, -2), (+2, +2)) (rangeOf city.layout)
+
+let printCity (city : City) = 
+    let layout = city.layout
+    let ((xmin, ymin), (xmax, ymax)) = rangeOf layout
+    let cellHeight = 4
+    
+    let formatUrbz token = 
+        [ ("       ")
+          ("       ")
+          (sprintf "  (%2A)  " token)
+          ("       ") ]
+    
+    let formatBuildingTiles (b : BuildingBlock) (bs : BuildingTile list) = 
+        let n = bs.Length
+        [ (sprintf "%4A" bs.Head.color)
+          (sprintf "%s %6A" (if b.inConstruction then "*"
+                             else " ") bs.Head.number)
+          (sprintf "%4s" (if b.player.IsSome then b.player.Value
+                          else ""))
+          (sprintf "#%d    " n) ]
+    
+    let formatGreenSpace (b : BuildingBlock) = 
+        [ ("       ")
+          ("   GS  ")
+          (sprintf " (%2A)  " (if b.player.IsSome then b.player.Value
+                               else ""))
+          ("       ") ]
+    
+    let formatCellInfo (block : CityBlock) = 
+        match block with
+        | BuildingBlock b -> 
+            match b.tiles with
+            | BuildingTiles buildingTiles -> formatBuildingTiles b buildingTiles
+            | GreenSpaceTile gs -> formatGreenSpace b
+        | UrbanizationBlock token -> formatUrbz token
+    
+    let printCell (r : int) (y : int) (x : int) = 
+        let cityBlockOpt : Option<CityBlock> = layout.TryFind(x, y)
+        let exists = cityBlockOpt.IsSome
+        let existsOrHasRightBlock = exists || layout.ContainsKey(x + 1, y)
+        let existsOrHasBottomBlock = exists || layout.ContainsKey(x, y - 1)
+        
+        let fmt = 
+            match r with
+            | 4 when existsOrHasBottomBlock -> "_______"
+            | _ when exists -> List.nth (formatCellInfo cityBlockOpt.Value) r
+            | _ -> "       "
+        printf "%7s%s" fmt (if existsOrHasRightBlock then "|"
+                            else " ")
+    
+    let printRow (y : int) = 
+        [ 0..cellHeight ] |> List.iter (fun r -> 
+                                 [ xmin..xmax ] |> List.iter (printCell r y)
+                                 printfn "")
+    
+    (List.rev [ (ymin - 1)..(ymax + 1) ]) |> List.iter printRow
+
+printCity city
