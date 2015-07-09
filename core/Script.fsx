@@ -137,7 +137,8 @@ let playerStateOf (player : PlayerId) (gameTT : TwoTrack<Game, GameError>) : Two
     match gameTT with
     | Error e -> Error e
     | Success game -> 
-        let { playerStates = ps; availableTiles = ts } : Game = game
+        let ps = game.playerStates
+        let ts = game.availableTiles
         match ps.TryFind(player) with
         | None -> Error(PlayerIdNotBound player)
         | Some playerState -> Success playerState
@@ -218,7 +219,9 @@ let increase (item : IncreasableItem) (player : PlayerId) (gameTT : TwoTrack<Gam
     match gameTT with
     | Error _ -> gameTT
     | Success game -> 
-        let { playerStates = ps; availableTiles = ts } : Game = game
+        let ps = game.playerStates
+        let ts = game.availableTiles
+
         match ps.TryFind(player) with
         | None -> Error(PlayerIdNotBound player)
         | Some playerState -> 
@@ -251,15 +254,28 @@ let whenAction (requiredKind : ActionKind) (updater : UpdateGame) =
         if kind = requiredKind then updater
         else identityUpdateGame
 
-let funChar1 = whenAction ActionKind.Urbanization (increase IncreasableItem.Resource)
-let ng = (funChar1 ActionKind.Urbanization) Player1 game0
-let ng0 = game0
-let ng1 = increase IncreasableItem.AvailableResource Player2 ng0
+let character1OnAction = whenAction ActionKind.Urbanization (increase IncreasableItem.Resource)
+
+// TEST - no update should occured when the triggered action does not match the character's one
+AreEqual game0 ((character1OnAction ActionKind.EndGame) Player1 game0)
+AreEqual game0 ((character1OnAction ActionKind.FloorConstruction) Player1 game0)
+
+let ng = (character1OnAction ActionKind.Urbanization) Player1 game0
+match (withinPlayerStateOf Player1 ng (fun p -> p.nbResource)) with
+| Error e -> AreEqual NoResourceAvailable e
+| Success v -> Fail(sprintf "And error should have occured, got: %A" v)
+
+let ng1 = increase IncreasableItem.AvailableResource Player2 game0
 let ng2 = increase IncreasableItem.AvailableResource Player2 ng1
 
 match (withinPlayerStateOf Player2 ng2 (fun p -> p.nbResourceAvailable)) with
 | Error e -> Fail(sprintf "No error should have occured, got: %A" e)
 | Success v -> AreEqual 2 v
+
+let ng3 = (character1OnAction ActionKind.Urbanization) Player2 ng2
+match (withinPlayerStateOf Player2 ng3 (fun p -> p.nbResource)) with
+| Error e -> Fail(sprintf "No error should have occured, got: %A" e)
+| Success v -> AreEqual 1 v
 
 type CharacterCard = 
     { id : CharacterId
