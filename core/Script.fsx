@@ -133,12 +133,7 @@ type GameError =
     | NoTileAvailableInGame
     | UnsupportedIncreasableItem
 
-let resourcesAvailable (playerStateTT : TwoTrack<PlayerState, GameError>) : TwoTrack<int, GameError> = 
-    match playerStateTT with
-    | Error e -> Error e
-    | Success ps -> Success ps.nbResourceAvailable
-
-let playerStateFor (player : PlayerId) (gameTT : TwoTrack<Game, GameError>) : TwoTrack<PlayerState, GameError> = 
+let playerStateOf (player : PlayerId) (gameTT : TwoTrack<Game, GameError>) : TwoTrack<PlayerState, GameError> = 
     match gameTT with
     | Error e -> Error e
     | Success game -> 
@@ -147,6 +142,13 @@ let playerStateFor (player : PlayerId) (gameTT : TwoTrack<Game, GameError>) : Tw
         | None -> Error(PlayerIdNotBound player)
         | Some playerState -> Success playerState
 
+let withinPlayerStateOf<'T> (player : PlayerId) (gameTT : TwoTrack<Game, GameError>) (func : PlayerState -> 'T) : TwoTrack<'T, GameError> = 
+    let playerStateTT = playerStateOf player gameTT
+    match playerStateTT with
+    | Error e -> Error e
+    | Success ps -> Success(func ps)
+
+// interleave player and playerIds
 let rec mapPlayers (players : Player list) (playerIds : PlayerId list) (mapped : Map<Player, PlayerId>) = 
     match playerIds with
     | id :: ids -> 
@@ -155,11 +157,20 @@ let rec mapPlayers (players : Player list) (playerIds : PlayerId list) (mapped :
         | [] -> Success mapped
     | [] -> Error(TooMuchPlayer players)
 
-// TEST
+// TEST - too much player
 match mapPlayers [ "John"; "Carmen"; "Pacman"; "Flibuste"; "Colin"; "Martin" ] AllPlayerIds Map.empty with
 | Error(TooMuchPlayer ps) -> AreEqual([ "Martin" ], ps)
 | Error x -> Fail(sprintf "Wrong error: %A" x)
 | Success _ -> Fail "More than 5 players should bot be allowed"
+// TEST - player/playerId interleaved
+match mapPlayers [ "Carmen"; "Pacman" ] AllPlayerIds Map.empty with
+| Error x -> Fail(sprintf "No error expected: %A" x)
+| Success mapped -> 
+    let expected = 
+        [ ("Carmen", Player1)
+          ("Pacman", Player2) ]
+        |> Map.ofList
+    AreEqual expected mapped
 
 let newGame (players : Player list) (availableTiles : Tile list) : TwoTrack<Game, GameError> = 
     match mapPlayers players AllPlayerIds Map.empty with
@@ -181,6 +192,7 @@ let newGame (players : Player list) (availableTiles : Tile list) : TwoTrack<Game
         
         Success { playersToIds = ids
                   playerStates = playerStates
+                  playerHands = Map.empty
                   availableTiles = availableTiles }
 
 let game0 = newGame [ "John"; "Carmen" ] []
@@ -245,7 +257,7 @@ let ng0 = game0
 let ng1 = increase IncreasableItem.AvailableResource Player2 ng0
 let ng2 = increase IncreasableItem.AvailableResource Player2 ng1
 
-match (playerStateFor Player2 ng2 |> resourcesAvailable) with
+match (withinPlayerStateOf Player2 ng2 (fun p -> p.nbResourceAvailable)) with
 | Error e -> Fail(sprintf "No error should have occured, got: %A" e)
 | Success v -> AreEqual 2 v
 
