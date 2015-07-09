@@ -20,6 +20,7 @@ let Throws<'T when 'T :> exn>(f) =
     | _ -> fail()
 
 // -------------------------------------------------------------------------------
+// @see Railway programming http://fsharpforfunandprofit.com/rop/
 type TwoTrack<'TEntity, 'TError> = 
     | Success of 'TEntity
     | Error of 'TError
@@ -116,9 +117,12 @@ type PlayerState =
       characters : CharacterId list
       tiles : Tile list }
 
+type PlayerHand = Card list
+
 type Game = 
     { playersToIds : Map<Player, PlayerId>
       playerStates : Map<PlayerId, PlayerState>
+      playerHands : Map<PlayerId, PlayerHand>
       availableTiles : Tile list }
 
 type GameError = 
@@ -128,6 +132,20 @@ type GameError =
     | NoResourceAvailable
     | NoTileAvailableInGame
     | UnsupportedIncreasableItem
+
+let resourcesAvailable (playerStateTT : TwoTrack<PlayerState, GameError>) : TwoTrack<int, GameError> = 
+    match playerStateTT with
+    | Error e -> Error e
+    | Success ps -> Success ps.nbResourceAvailable
+
+let playerStateFor (player : PlayerId) (gameTT : TwoTrack<Game, GameError>) : TwoTrack<PlayerState, GameError> = 
+    match gameTT with
+    | Error e -> Error e
+    | Success game -> 
+        let { playerStates = ps; availableTiles = ts } : Game = game
+        match ps.TryFind(player) with
+        | None -> Error(PlayerIdNotBound player)
+        | Some playerState -> Success playerState
 
 let rec mapPlayers (players : Player list) (playerIds : PlayerId list) (mapped : Map<Player, PlayerId>) = 
     match playerIds with
@@ -170,6 +188,7 @@ let game0 = newGame [ "John"; "Carmen" ] []
 type ActionKind = 
     | Urbanization = 1
     | FloorConstruction = 2
+    | EndGame = 10
 
 type UpdateGame = PlayerId -> TwoTrack<Game, GameError> -> TwoTrack<Game, GameError>
 
@@ -225,6 +244,10 @@ let ng = (funChar1 ActionKind.Urbanization) Player1 game0
 let ng0 = game0
 let ng1 = increase IncreasableItem.AvailableResource Player2 ng0
 let ng2 = increase IncreasableItem.AvailableResource Player2 ng1
+
+match (playerStateFor Player2 ng2 |> resourcesAvailable) with
+| Error e -> Fail(sprintf "No error should have occured, got: %A" e)
+| Success v -> AreEqual 2 v
 
 type CharacterCard = 
     { id : CharacterId
