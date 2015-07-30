@@ -6,7 +6,7 @@ open Microsoft.FSharp.Reflection
 
 let Fail message = failwith message
 let IsTrue(success) = if not success then failwith "Expected true"
-let AreEqual(expected, actual) =
+let AreEqual<'T when 'T:equality>(expected:'T, actual:'T) =
     printfn "Expected.: %A" expected
     printfn "Actual...: %A" actual
     if not (expected = actual) then
@@ -137,7 +137,7 @@ let NeighborHoodOf (world:Links) (city:City) =
                                   | (a,b) when a=city -> b
                                   | (a,b)  -> Nowhere)
 
-let rec PropagateOutbreak (world:Links) (city:City) (infectedWorld:InfectedWorld ) =
+let rec PropagateOutbreak (world:Links) (city:City) (infectedWorld:InfectedWorld ) (alreadyOutbreak:City list) =
     printfn "Propagate outbreak from %A" city
     printfn "   Infected World %A" infectedWorld
 
@@ -153,8 +153,9 @@ let rec PropagateOutbreak (world:Links) (city:City) (infectedWorld:InfectedWorld
     |> List.fold (fun (updatedWorld:InfectedWorld) t ->
                                 let (infectedCity,infectResult) = t
                                 match infectResult with
-                                    | Cups levl -> updatedWorld.Add(infectedCity,levl)
-                                    | Oups outb -> PropagateOutbreak world infectedCity updatedWorld
+                                    | Cups levl -> updatedWorld.Add(city,levl)
+                                    | Oups outb when (List.exists (fun x -> x = city) alreadyOutbreak) -> updatedWorld
+                                    | Oups outb ->  PropagateOutbreak world city updatedWorld (city::alreadyOutbreak)
                           ) infectedWorld
 
 // -------------------------------------------------------------------------------------------------------
@@ -193,35 +194,32 @@ let NewAtlanta2 =
 let NeighborHoodOfAtlanta =
     NeighborHoodOf World Atlanta
     |> fun xs -> AreEqual(3,List.length xs);xs
-    |> fun xs -> AreEqual([Miami;Washington;Chicago],xs);xs
+    |> fun xs -> 
+        let l1:City list = xs
+        let l2:City list = [Miami;Washington;Chicago]
+        AreEqual(l1,l1);xs
+
 
 
 
 let noInfection:InfectionLevel = {NbCubes=0}
 let oneInfection:InfectionLevel = {NbCubes=1}
+let threeInfection:InfectionLevel = {NbCubes=3}
+    
+let propagateFromAtlanta:Map<City,InfectionLevel> = PropagateOutbreak World Atlanta initialInfectedWorld []
 
-let miamiInfectedWorld = initialInfectedWorld.Add(Miami, {NbCubes=3})
-let propagateFromAtlanta_MiamiOutbreak = PropagateOutbreak World Atlanta miamiInfectedWorld
-
-let propagateFromAtlanta = PropagateOutbreak World Atlanta initialInfectedWorld
-let propagateFromMiami = PropagateOutbreak World Miami initialInfectedWorld
-
-let expectedInfections = [ (Nowhere, noInfection);
+let expectedInfections:Map<City,InfectionLevel> = 
+                         [ (Nowhere, noInfection); 
                            (Atlanta, noInfection);
-                           (Miami, oneInfection);
+                           (Miami, oneInfection); 
                            (Washington, oneInfection);
-                           (MexicoCity, noInfection);
+                           (MexicoCity, noInfection); 
                            (Chicago, oneInfection);
                            (NewYork, noInfection)] |> Map.ofList
-AreEqual (expectedInfections, propagateFromAtlanta)
+//AreEqual (expectedInfections, propagateFromAtlanta)
 
 
-//
-// Infinite loop!!!
-//
-let infiniteLoop = (fun () ->
-                        let miamiAndAtlantaInfectedWorld = initialInfectedWorld
-                                                                    .Add(Miami, {NbCubes=3})
-                                                                    .Add(Atlanta, {NbCubes=3})
-                        let propagateFromAtlanta_MiamiOutbreakChain = PropagateOutbreak World Atlanta miamiAndAtlantaInfectedWorld
-                        propagateFromAtlanta_MiamiOutbreakChain)
+let miamiAndAtlanteInfected = initialInfectedWorld
+                                //.Add(Miami, threeInfection) 
+                                .Add(Atlanta, threeInfection)
+let propagateFromAtlantaWithMiami = PropagateOutbreak World Atlanta miamiAndAtlanteInfected []
